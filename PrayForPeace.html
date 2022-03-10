@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <!-- <script src="https://docs.opencv.org/3.4.1/opencv.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"
+        crossorigin="anonymous"></script>
+
+    <script type="module">
+        var videoElement;
+        var canvasElement;
+        var canvasCtx;
+
+        var canvasElement2;
+        var canvasCtx2;
+
+        var selfieSegmentation;
+
+        var camera;
+
+        window.onload = function () {
+            videoElement = document.getElementsByClassName('input_video')[0]; //ビデオ要素の取得
+            canvasElement = document.getElementById('output_canvas');  //表示用のCanvasを取得
+            canvasCtx = canvasElement.getContext('2d');  //Canvas描画に関する情報にアクセスする
+            canvasElement2 = document.getElementById('base_canvas');
+            canvasCtx2 = canvasElement2.getContext('2d');
+            //segmentationを使用するための関連ファイルの取得と初期化
+            selfieSegmentation = new SelfieSegmentation({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`;
+                }
+            });
+
+            //segmentationを使う学習モデルを選択
+            selfieSegmentation.setOptions({
+                modelSelection: 0,  //0 : 一般モデル   1: 景観モデル(軽量)
+            });
+
+            //segmentation結果を処理する関数を登録
+            selfieSegmentation.onResults(onResults);
+            //カメラの初期化
+            camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await selfieSegmentation.send({ image: videoElement });  //入力した映像をselfieSegmentationに渡している
+                },
+                width: 960,
+                height: 520
+                // width: 640,
+                // height: 360
+            });
+            camera.start();  //カメラ動作開始
+        };
+
+        //Segmentationの認識結果の利用
+        function onResults(results) {
+
+            // canvasCtx2.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            // canvasCtx2.drawImage(results.segmentationMask, 0, 0, canvasElement.width, canvasElement.height);
+            // let src = cv.imread(canvasElement2);
+            // let dst = new cv.Mat();
+
+            // cv.cvtColor(src, src, cv.COLOR_RGB2GRAY, 0);
+            // cv.resize(src, src, new cv.Size(640, 360), 0, 0, cv.INTER_AREA);
+            // You can try more different parameters
+            // cv.Canny(src, dst, 50, 90, 3, false);
+            // cv.bitwise_not(dst, dst);
+            // cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA);
+            // cv.resize(dst, dst, new cv.Size(1280, 720), 0, 0, cv.INTER_AREA);
+            //console.log(dst.cols+","+ dst.rows);
+            // const imgData = new ImageData(new Uint8ClampedArray(dst.data, dst.cols, dst.rows), dst.cols, dst.rows);
+            // canvasCtx2.putImageData(imgData, 0, 0);
+            //canvasCtx2.scale(2, 2);
+
+            // src.delete(); dst.delete();
+
+            canvasCtx.save();
+            //描画内容をクリア
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            //映像(results.image)をcanvasのサイズに引き伸ばして描画
+            canvasCtx.drawImage(results.segmentationMask, 0, 0, canvasElement.width, canvasElement.height);
+
+            // 不透明な領域に書き込み許可 Only overwrite existing pixels. 元画像とセグメンテーションされた画像の重なっている部分のみ描画
+            canvasCtx.globalCompositeOperation = 'source-in';
+            //カメラ映像を描画  ここで描画しないとただの赤い姿になる
+            canvasCtx.fillStyle = '#ffd500';  //ウクライナ国旗の麦部分
+            canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+            // canvasCtx.drawImage(canvasElement2, 0, 0, canvasElement.width, canvasElement.height);
+
+            // 透明な領域に書き込み許可(背景部分) Only overwrite missing pixels.
+            canvasCtx.globalCompositeOperation = 'destination-atop';
+            canvasCtx.fillStyle = '#005bbb';  //ウクライナ国旗の空の部分
+            canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+            // canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            // canvasCtx.drawImage(results.segmentationMask, 0, 0, canvasElement.width, canvasElement.height);
+
+            canvasCtx.restore();
+        }
+
+
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Webカメラの映像を取得 -->
+        <video class="input_video" style="position:absolute; display:none;"></video>
+        <!-- 最終結果の表示 -->
+        <canvas id="base_canvas" width="1280px" height="720px" style="position:absolute;display:none;"></canvas>
+        <!-- OpenCV用の画像作成や途中経過の表示 -->
+        <canvas id="output_canvas" width="1280px" height="720px" style="position:absolute;"></canvas>
+    </div>
+</body>
+
+</html>

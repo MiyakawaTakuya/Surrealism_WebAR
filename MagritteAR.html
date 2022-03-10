@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"
+        crossorigin="anonymous"></script>
+
+    <script type="module">
+        var videoElement;
+        var canvasElement;
+        var canvasCtx;
+        var selfieSegmentation;
+        var camera;
+        var imgBox = ['img/sky.png', 'img/WheatAndSky.png', 'img/SunsetSky.png', 'img/onTheSky.png', 'img/comeSunshineSky.png', 'img/AfterRain.png', 'img/StarrySkyForest.png'];
+        var img = new Image();   // 新たな img 要素を作成
+        img.addEventListener("load", function () {
+            // drawImage を実行する文をここに置く
+        }, false);
+        img.src = imgBox[4]; // ソースのパスを設定
+        // img.src = 'img/sky.png';
+
+        window.onload = function () {
+            videoElement = document.getElementsByClassName('input_video')[0]; //ビデオ要素の取得
+            canvasElement = document.getElementById('output_canvas');  //表示用のCanvasを取得
+            canvasCtx = canvasElement.getContext('2d');  //Canvas描画に関する情報にアクセスする
+            //segmentationを使用するための関連ファイルの取得と初期化
+            selfieSegmentation = new SelfieSegmentation({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`;
+                }
+            });
+            //segmentationを使う学習モデルを選択
+            selfieSegmentation.setOptions({
+                modelSelection: 0,  //0 : 一般モデル   1: 景観モデル(軽量)
+            });
+
+            //segmentation結果を処理する関数を登録
+            selfieSegmentation.onResults(onResults);
+            //カメラの初期化
+            camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await selfieSegmentation.send({ image: videoElement });  //入力した映像をselfieSegmentationに渡している
+                },
+                width: 960,
+                height: 520
+            });
+            camera.start();  //カメラ動作開始
+        };
+
+        //Segmentationの認識結果の利用
+        function onResults(results) {
+            canvasCtx.save();
+            //描画内容をクリア
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            //映像(results.image)をcanvasのサイズに引き伸ばして描画
+            canvasCtx.drawImage(results.segmentationMask, 0, 0, canvasElement.width, canvasElement.height);
+            // 不透明な領域に書き込み許可 元画像とセグメンテーションされた画像の重なっている部分のみ描画
+            canvasCtx.globalCompositeOperation = 'source-in';
+            //空模様のイメージを描画する
+            canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
+            // 透明な領域に書き込み許可(背景部分) 
+            canvasCtx.globalCompositeOperation = 'destination-atop';
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            canvasCtx.restore();
+        }
+
+
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Webカメラの映像を取得 -->
+        <video class="input_video" style="position:absolute; display:none;"></video>
+        <!-- OpenCV用の画像作成や途中経過の表示 -->
+        <canvas id="output_canvas" width="1280px" height="720px" style="position:absolute;"></canvas>
+    </div>
+</body>
+
+</html>
